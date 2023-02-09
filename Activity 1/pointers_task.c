@@ -37,7 +37,7 @@ int main() {
 
         pc.printf("Function value: f(%f)=%f \r\n", x, f_1(x));
 
-        pc.printf("First derivative: f(%f)=%f \r\n", first_derivative(f_1, x));
+        pc.printf("First derivative: %f \r\n", first_derivative(f_1, x));
 
         pc.printf("Second derivative: %f \r\n", second_derivative(f_1, x));
 }
