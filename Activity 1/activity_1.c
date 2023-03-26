@@ -62,9 +62,9 @@ void activateLEDs() {
 // Cycles through the LEDs. Activated by ticker.
 void updateLEDs() {
 
+    current_led = (current_led % 3) + 1; // Cycles from 1 to 3
     activateLEDs();
     
-    current_led = (current_led % 3) + 1; // Cycles from 1 to 3
 }
 
 // Interrupt callback (on button release)
