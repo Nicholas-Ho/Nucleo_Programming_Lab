@@ -1,6 +1,7 @@
 #include "mbed.h"
-#include "stdint.h" //This allows the use of integers of a known width
+#include <stdint.h> //This allows the use of integers of a known width
 #include <string.h> //This allows the use of strcpy and strcat
+#include <stdio.h> //This allows the use of snprintf
 #define LM75_REG_TEMP (0x00) // Temperature Register
 #define LM75_REG_CONF (0x01) // Configuration Register
 #define LM75_ADDR     (0x90) // LM75 address
@@ -13,9 +14,9 @@
 I2C i2c(I2C_SDA, I2C_SCL);
 
 // Don't actually know the order, should check
-DigitalOut red(LED1); // Error indicator
+DigitalOut red(LED3); // Error indicator
 DigitalOut blue(LED2); // Interrupt indicator
-DigitalOut green(LED3); // Logging indicator
+DigitalOut yellow(LED1); // Logging indicator
 
 InterruptIn lm75_int(D7); // Make sure you have the OS line connected to D7
 
@@ -32,7 +33,7 @@ int repeat_interval = 1000000; // In microseconds
 
 #define ARRAY_SIZE 100
 
-float buffer[ARRAY_SIZE];
+float buffer[ARRAY_SIZE] = {0};
 int firstIndex = 0; // Index of first element
 int lastIndex = ARRAY_SIZE-1; // Index of last element. To be overwritten.
 int bufferLength = 0; // Buffer length. When length = size, buffer is full.
@@ -40,33 +41,43 @@ int size = -1; // Size of buffer. To be overwritten
 
 void initialiseBuffer(int bufferSize, int initialise); // initialise is a bool, and should only be 1 or 0
 void bufferAdd(float contents, int popIfFull);
-int bufferPop();
+float bufferPop();
 
 
 // EMBEDDED LOGIC
+int alarmOn = 0;
 
 // Alarm!
-void displayAlarm() {
+void activateAlarm() {
     // Generate string
     char displayChars[400];
-    strcpy(displayChars, "Temperatures: ")
+    char charBuffer[9];
+    strcpy(displayChars, "Temperatures: ");
 
     float temp = bufferPop();
     while(temp != -1) {
-        strcat(displayChars, temp);
-        strcat(displayChars, " ")
+        snprintf(charBuffer, 5, "%f", temp);
+        strcat(displayChars, charBuffer);
+        strcat(displayChars, " ");
         temp = bufferPop();
     }
 
     // Display string
-    pc.printf(displayChars);
+    pc.printf("%s", displayChars);
+
+    // free(displayChars);
+    // free(charBuffer);
 
     // LED indicator
     while(1) {
+        yellow = 0;
         blue = !blue;
         wait_us(interrupt_interval);
     }
+}
 
+void primeAlarm() {
+    alarmOn = 1;
 }
 
 int main()
@@ -90,12 +101,18 @@ int main()
         while(1)
         {
             red = !red;
-            wait_us(interrupt_interval));
+            wait_us(interrupt_interval);
         }
     }
 
+    pc.printf("\nConnected to temperature sensor.\n");
+
     float tos=28; // TOS temperature
     float thyst=26; // THYST tempertuare
+    
+    pc.printf("OS Interrupt Temperature: %.1f\n", tos);
+    pc.printf("Hysterisis Temperature:   %.1f\n", thyst);
+    pc.printf("Reading...\n");
 
     // This section of code sets the TOS register
     data_write[0]=LM75_REG_TOS;
@@ -113,7 +130,7 @@ int main()
 
     // This line attaches the interrupt.
     // The interrupt line is active low so we trigger on a falling edge
-    lm75_int.fall(&displayAlarm);
+    lm75_int.fall(&primeAlarm);
 
     while (1)
     {
@@ -128,8 +145,14 @@ int main()
         float temp = i16 / 256.0;
 
         // Log result
-        bufferAdd(temp, 1)
-        green = !green;
+        bufferAdd(temp, 1);
+        yellow = !yellow;
+
+        // If the alarm is primed, activate it
+        if(alarmOn == 1) {
+            activateAlarm();
+        }
+
         wait_us(repeat_interval);
     }
 
@@ -145,10 +168,6 @@ void initialiseBuffer(int bufferSize, int initialise) {
 
     // Ensure that size is not larger than array
     size = (bufferSize <= ARRAY_SIZE) ? bufferSize : ARRAY_SIZE;
-
-    for(int i=0; i < (ARRAY_SIZE); i++) {
-        buffer[i] = 0;
-    }
 
     if(initialise != 0) {
         lastIndex = size-1;
@@ -182,13 +201,13 @@ void bufferAdd(float contents, int popIfFull) { // popIfFull is a bool, it shoul
 // Pop from buffer
 float bufferPop() {
     if(bufferLength > 0) {
-        int output = buffer[firstIndex];
+        float output = buffer[firstIndex];
         firstIndex = (firstIndex + 1) % ARRAY_SIZE;
         bufferLength--;
 
         return output;
     } else {
-        pc.printf("Queue empty, nothing to pop")
-        return -1;
+        // pc.printf("Queue empty, nothing to pop");
+        return -1.0;
     }
 }
