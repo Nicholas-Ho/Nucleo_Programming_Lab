@@ -13,7 +13,6 @@
 
 I2C i2c(I2C_SDA, I2C_SCL);
 
-// Don't actually know the order, should check
 DigitalOut red(LED3); // Error indicator
 DigitalOut blue(LED2); // Interrupt indicator
 DigitalOut yellow(LED1); // Logging indicator
